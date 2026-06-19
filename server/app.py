@@ -12,6 +12,7 @@ GET  /            — serves webapp/index.html
 import asyncio
 import base64
 import json
+import os
 import sys
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -141,6 +142,10 @@ class CalibrateRequest(BaseModel):
     name_b: str = 'B'
     fps: float = 10.0
     golden_point: bool = False
+    # TrackNetV3 — if not sent, fall back to env vars set by kernel.py
+    tracknet_repo: Optional[str] = None
+    tracknet_ckpt: Optional[str] = None
+    inpaint_ckpt: Optional[str] = None
 
 
 @app.post('/calibrate')
@@ -155,9 +160,17 @@ async def calibrate(req: CalibrateRequest):
     if req.init_score:
         a, b = (int(x) for x in req.init_score.split(','))
         init = {'A': a, 'B': b}
+    tn_repo = req.tracknet_repo or os.environ.get('TRACKNET_REPO')
+    tn_ckpt = req.tracknet_ckpt or os.environ.get('TRACKNET_CKPT')
+    ip_ckpt = req.inpaint_ckpt  or os.environ.get('INPAINT_CKPT')
+    if tn_repo:
+        print(f'[calibrate] TrackNetV3 enabled — repo={tn_repo}', flush=True)
+    else:
+        print('[calibrate] TrackNetV3 not configured — ball tracking disabled', flush=True)
     _pipeline = StreamPipeline(
         mapper=mapper, model_path=req.model, conf=req.conf,
         court_margin=req.court_margin, fps=req.fps,
+        tracknet_repo=tn_repo, tracknet_ckpt=tn_ckpt, inpaint_ckpt=ip_ckpt,
         initial_score=init, first_server=req.first_server,
         names={'A': req.name_a, 'B': req.name_b},
         golden_point=req.golden_point,
