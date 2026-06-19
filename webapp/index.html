@@ -1,0 +1,909 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#111">
+<title>Padel AI</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+:root{
+  --bg:#111;--surface:#1e1e1e;--surface2:#2a2a2a;--border:#333;
+  --accent:#4ade80;--accent2:#facc15;--text:#f0f0f0;--muted:#888;
+  --a1:#ff9626;--a2:#ffb86c;--b1:#3cdc3c;--b2:#86efac;
+  --ball:#3cf0ff;--red:#ef4444;
+  --radius:12px;--font:system-ui,-apple-system,sans-serif;
+}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--font);overflow:hidden}
+.page{display:none;height:100%;flex-direction:column;overflow-y:auto}
+.page.active{display:flex}
+/* nav */
+nav{display:flex;background:var(--surface);border-bottom:1px solid var(--border);flex-shrink:0}
+nav button{flex:1;padding:10px 4px;background:none;border:none;color:var(--muted);font-size:11px;cursor:pointer;transition:.15s}
+nav button.active{color:var(--accent);border-bottom:2px solid var(--accent)}
+/* common */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin:12px}
+h2{font-size:18px;font-weight:700;margin-bottom:12px}
+label{display:block;font-size:12px;color:var(--muted);margin-bottom:4px;margin-top:10px}
+input,select{width:100%;padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:15px}
+input:focus,select:focus{outline:none;border-color:var(--accent)}
+.btn{display:block;width:100%;padding:14px;border:none;border-radius:var(--radius);font-size:16px;font-weight:600;cursor:pointer;transition:.15s;margin-top:10px}
+.btn-primary{background:var(--accent);color:#000}
+.btn-secondary{background:var(--surface2);color:var(--text);border:1px solid var(--border)}
+.btn-danger{background:var(--red);color:#fff}
+.btn:active{opacity:.8}
+.row{display:flex;gap:8px}
+.row .btn{margin-top:0}
+/* score bar */
+#score-bar{background:var(--surface);border-bottom:1px solid var(--border);padding:8px 12px;flex-shrink:0}
+.score-main-row{display:flex;align-items:center;justify-content:space-between;gap:6px}
+.team-side{display:flex;flex-direction:column;gap:2px}
+.team-side.right{align-items:flex-end}
+.team-name{font-size:12px;color:var(--muted);max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.team-name.serving{color:var(--accent);font-weight:700}
+.score-block{display:flex;align-items:baseline;gap:6px}
+.pts-num{font-size:30px;font-weight:800;font-variant-numeric:tabular-nums}
+.games-num{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--accent2)}
+.sets-row{display:flex;gap:3px;align-items:center}
+.set-box{width:18px;height:18px;border-radius:3px;background:var(--surface2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700}
+.set-box.won{background:var(--accent2);color:#000;border-color:var(--accent2)}
+.score-sep-col{display:flex;flex-direction:column;align-items:center;gap:4px}
+.score-sep{font-size:22px;color:var(--muted)}
+.rally-badge{display:inline-flex;align-items:center;gap:4px;font-size:11px;padding:2px 8px;border-radius:99px;background:var(--surface2)}
+.rally-badge.active{background:#14532d;color:var(--accent)}
+/* radar canvas */
+#radar-wrap{flex:1;display:flex;align-items:center;justify-content:center;overflow:hidden;background:#0d0d0d;min-height:0}
+#radar{display:block;max-width:100%;max-height:100%}
+/* speed hud */
+#speed-hud{background:var(--surface);border-top:1px solid var(--border);padding:10px 16px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between}
+.speed-val{font-size:28px;font-weight:800;color:var(--ball);font-variant-numeric:tabular-nums}
+.speed-label{font-size:11px;color:var(--muted)}
+/* rally log */
+#rally-log{max-height:80px;overflow-y:auto;padding:0 16px 8px}
+.rally-item{font-size:12px;color:var(--muted);padding:3px 0;border-bottom:1px solid var(--border)}
+.rally-item .winner{font-weight:700;color:var(--text)}
+/* camera page */
+#cam-status{font-size:42px;font-weight:800;text-align:center;padding:20px}
+.stat-row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:14px}
+.stat-val{font-weight:600;color:var(--accent)}
+/* calibrate */
+#calib-wrap{position:relative;width:100%;background:#000;flex:1;min-height:0}
+#calib-video{width:100%;height:100%;object-fit:cover}
+#calib-overlay{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none}
+#calib-hint{position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,.7);padding:10px 16px;text-align:center;font-size:13px}
+/* history */
+.game-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin:10px 12px}
+.game-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.game-score{font-size:22px;font-weight:800}
+.game-date{font-size:11px;color:var(--muted)}
+.game-stats{display:flex;gap:16px;font-size:12px;color:var(--muted);flex-wrap:wrap}
+.game-stats span b{color:var(--text)}
+/* dot legend */
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:4px}
+/* match over overlay */
+#match-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:100;align-items:center;justify-content:center;flex-direction:column;text-align:center;padding:24px}
+#match-overlay.show{display:flex}
+#match-overlay h1{font-size:36px;font-weight:900;color:var(--accent);margin-bottom:8px}
+#match-overlay p{color:var(--muted);margin-bottom:24px}
+</style>
+</head>
+<body>
+
+<!-- ═══ NAV ═══ -->
+<nav id="main-nav" style="display:none">
+  <button data-page="display" onclick="go('display')">📺 Display</button>
+  <button data-page="camera"  onclick="go('camera')">📷 Camera</button>
+  <button data-page="history" onclick="go('history')">📋 Records</button>
+  <button data-page="home"    onclick="go('home')">⚙️ Setup</button>
+</nav>
+
+<!-- ═══ HOME ═══ -->
+<div id="page-home" class="page active">
+  <div class="card">
+    <h2>🎾 Padel AI Setup</h2>
+    <label>Team A name</label>
+    <input id="name-a" value="Team A">
+    <label>Team B name</label>
+    <input id="name-b" value="Team B">
+    <label>Golden Point</label>
+    <select id="golden-point">
+      <option value="false">No</option>
+      <option value="true">Yes</option>
+    </select>
+    <label>First server</label>
+    <select id="first-server">
+      <option value="A">Team A</option>
+      <option value="B">Team B</option>
+    </select>
+    <button class="btn btn-primary" onclick="doSetup()" style="margin-top:20px">Connect &amp; Calibrate Court →</button>
+    <button class="btn btn-secondary" onclick="skipCalib()" style="margin-top:8px">Skip calibration (use saved)</button>
+  </div>
+</div>
+
+<!-- ═══ CALIBRATE ═══ -->
+<div id="page-calibrate" class="page">
+  <div style="padding:12px 16px;background:var(--surface);border-bottom:1px solid var(--border);font-size:13px;color:var(--muted)">
+    Tap the <b style="color:var(--text)">4 outer court corners</b>: <span style="color:#3b82f6">TL</span> → <span style="color:#22c55e">TR</span> → <span style="color:#ef4444">BR</span> → <span style="color:#f59e0b">BL</span>
+  </div>
+  <div id="calib-wrap">
+    <video id="calib-video" autoplay playsinline muted></video>
+    <canvas id="calib-overlay"></canvas>
+    <div id="calib-hint">Point camera at the full court, then tap corners</div>
+  </div>
+  <div style="padding:12px;display:flex;gap:8px">
+    <button class="btn btn-secondary" onclick="calibReset()">Reset</button>
+    <button class="btn btn-primary" id="calib-confirm" onclick="calibConfirm()" disabled>Confirm (0/4)</button>
+  </div>
+</div>
+
+<!-- ═══ CAMERA ═══ -->
+<div id="page-camera" class="page">
+  <div class="card">
+    <h2>📷 Camera Streaming</h2>
+    <div id="cam-status">⏸</div>
+    <div class="stat-row"><span>Status</span><span class="stat-val" id="st-status">Idle</span></div>
+    <div class="stat-row"><span>Frames sent</span><span class="stat-val" id="st-frames">0</span></div>
+    <div class="stat-row"><span>Latency</span><span class="stat-val" id="st-lat">—</span></div>
+    <div class="stat-row"><span>Players detected</span><span class="stat-val" id="st-players">—</span></div>
+    <div class="stat-row"><span>Ball</span><span class="stat-val" id="st-ball">—</span></div>
+    <div class="stat-row"><span>Score</span><span class="stat-val" id="st-score">—</span></div>
+    <button class="btn btn-primary"  id="cam-start" onclick="startCamera()">▶ Start Streaming</button>
+    <button class="btn btn-danger"   id="cam-stop"  onclick="stopCamera()" style="display:none">■ Stop</button>
+  </div>
+</div>
+
+<!-- ═══ DISPLAY ═══ -->
+<div id="page-display" class="page">
+  <div id="score-bar">
+    <!-- Format: [Sets A] [Games A] [Pts A]  –  [Pts B] [Games B] [Sets B] -->
+    <div class="score-main-row">
+      <!-- Team A left -->
+      <div class="team-side">
+        <div class="team-name" id="d-name-a">Team A</div>
+        <div class="score-block">
+          <div class="sets-row" id="d-sets-a"></div>
+          <div class="games-num" id="d-games-a" style="color:var(--a1)">0</div>
+          <div class="pts-num" id="d-pts-a" style="color:var(--a1)">0</div>
+        </div>
+      </div>
+      <!-- Centre -->
+      <div class="score-sep-col">
+        <div class="score-sep">–</div>
+        <div><span class="rally-badge" id="d-rally">● Rally</span></div>
+      </div>
+      <!-- Team B right -->
+      <div class="team-side right">
+        <div class="team-name" id="d-name-b">Team B</div>
+        <div class="score-block" style="flex-direction:row-reverse">
+          <div class="sets-row" id="d-sets-b"></div>
+          <div class="games-num" id="d-games-b" style="color:var(--b1)">0</div>
+          <div class="pts-num" id="d-pts-b" style="color:var(--b1)">0</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="radar-wrap" style="position:relative">
+    <img id="video-frame" style="display:none;width:100%;height:100%;object-fit:contain;position:absolute;top:0;left:0;z-index:1">
+    <canvas id="radar" style="position:relative;z-index:1"></canvas>
+    <button id="view-toggle" onclick="toggleView()"
+      style="position:absolute;top:8px;right:8px;z-index:2;background:rgba(0,0,0,.6);border:1px solid #555;color:#fff;font-size:11px;padding:4px 10px;border-radius:8px;cursor:pointer">
+      📷 Video
+    </button>
+  </div>
+
+  <div id="speed-hud">
+    <div>
+      <div class="speed-label">BALL SPEED</div>
+      <div class="speed-val" id="d-speed">— km/h</div>
+    </div>
+    <div style="text-align:right;font-size:12px;color:var(--muted)">
+      <div id="d-set-label">Set 1</div>
+      <div style="font-size:11px;color:var(--muted);margin-top:2px" id="d-tiebreak-label"></div>
+    </div>
+  </div>
+
+  <div id="rally-log"></div>
+</div>
+
+<!-- ═══ HISTORY ═══ -->
+<div id="page-history" class="page">
+  <div style="padding:14px 16px;display:flex;justify-content:space-between;align-items:center">
+    <h2 style="margin:0">Match Records</h2>
+    <button class="btn btn-secondary" style="width:auto;padding:6px 14px;font-size:13px;margin:0" onclick="loadHistory()">↻ Refresh</button>
+  </div>
+  <div id="history-list" style="padding-bottom:20px"></div>
+</div>
+
+<!-- ═══ MATCH OVER OVERLAY ═══ -->
+<div id="match-overlay">
+  <h1 id="mo-winner">Team A Wins!</h1>
+  <p id="mo-score">2 – 1</p>
+  <button class="btn btn-primary" style="width:220px" onclick="newGame()">New Match</button>
+  <button class="btn btn-secondary" style="width:220px" onclick="closeOverlay()">View Records</button>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+// CONSTANTS — padel court: 10m wide × 20m long
+// ═══════════════════════════════════════════════════════════════
+const COURT_W = 10.0, COURT_L = 20.0;
+const PPM = 22, MARGIN = 20;
+const A1_COLOR = '#ff9626', A2_COLOR = '#ffb86c';
+const B1_COLOR = '#3cdc3c', B2_COLOR = '#86efac';
+const BALL_COLOR = '#3cf0ff';
+const TRAIL_LEN = 12;
+
+// Tennis-style points sequence
+const TENNIS_PTS = ['0', '15', '30', '40'];
+
+// ═══════════════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════════════
+const S = {
+  serverUrl: window.location.origin,
+  nameA: localStorage.getItem('nameA') || 'Team A',
+  nameB: localStorage.getItem('nameB') || 'Team B',
+  ws: null,
+  cameraStream: null,
+  cameraTimer: null,
+  frameCount: 0,
+  corners: JSON.parse(localStorage.getItem('corners') || 'null'),
+  players: [],   // [{tid, x_m, y_m, half}, ...]
+  ball: null,    // {x, y, x_m, y_m} or null
+  score: {
+    a: 0, b: 0,
+    pts_a: 0, pts_b: 0,
+    sets_a: 0, sets_b: 0,
+    server: 'A',
+    in_tiebreak: false,
+    match_over: false,
+    winner: null,
+    name_a: 'Team A', name_b: 'Team B',
+  },
+  speedKmh: null,
+  rallyActive: false,
+  trails: {},          // tid → [{x,y}, ...]
+  rallyLog: [],
+  matchSaved: false,
+  peakSpeed: 0,
+  rallyCount: 0,
+  matchStartTime: null,
+  viewMode: 'radar',  // 'radar' | 'video'
+};
+
+// ═══════════════════════════════════════════════════════════════
+// ROUTING
+// ═══════════════════════════════════════════════════════════════
+let currentPage = 'home';
+function go(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+  document.getElementById('page-' + page).classList.add('active');
+  const nb = document.querySelector(`nav button[data-page="${page}"]`);
+  if (nb) nb.classList.add('active');
+  currentPage = page;
+  if (page === 'display') initRadarCanvas();
+  if (page === 'history') loadHistory();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// HOME / SETUP
+// ═══════════════════════════════════════════════════════════════
+function doSetup() {
+  S.nameA = document.getElementById('name-a').value || 'Team A';
+  S.nameB = document.getElementById('name-b').value || 'Team B';
+  localStorage.setItem('nameA', S.nameA);
+  localStorage.setItem('nameB', S.nameB);
+  document.getElementById('main-nav').style.display = 'flex';
+  startCalibration();
+}
+
+function skipCalib() {
+  S.nameA = document.getElementById('name-a').value || 'Team A';
+  S.nameB = document.getElementById('name-b').value || 'Team B';
+  document.getElementById('main-nav').style.display = 'flex';
+  if (S.corners) {
+    sendCalibration().then(() => go('display'));
+  } else {
+    go('display');
+  }
+  connectDisplay();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// CALIBRATION
+// ═══════════════════════════════════════════════════════════════
+let calibCorners = [];
+const CORNER_COLORS = ['#3b82f6', '#22c55e', '#ef4444', '#f59e0b'];
+const CORNER_LABELS = ['TL', 'TR', 'BR', 'BL'];
+
+function startCalibration() {
+  calibCorners = [];
+  go('calibrate');
+  const video = document.getElementById('calib-video');
+  const overlay = document.getElementById('calib-overlay');
+  navigator.mediaDevices.getUserMedia({video: {facingMode: 'environment', width: {ideal: 1280}}, audio: false})
+    .then(stream => {
+      S.cameraStream = stream;
+      video.srcObject = stream;
+      video.onloadedmetadata = () => {
+        overlay.width = video.offsetWidth;
+        overlay.height = video.offsetHeight;
+        calibDrawDots();
+      };
+    })
+    .catch(e => { alert('Camera error: ' + e.message); go('home'); });
+
+  const wrap = document.getElementById('calib-wrap');
+  wrap.onclick = (e) => {
+    if (calibCorners.length >= 4) return;
+    const rect = video.getBoundingClientRect();
+    const scaleX = video.videoWidth / rect.width;
+    const scaleY = video.videoHeight / rect.height;
+    const x = Math.round((e.clientX - rect.left) * scaleX);
+    const y = Math.round((e.clientY - rect.top) * scaleY);
+    calibCorners.push([x, y]);
+    calibDrawDots();
+    const btn = document.getElementById('calib-confirm');
+    btn.textContent = `Confirm (${calibCorners.length}/4)`;
+    btn.disabled = calibCorners.length < 4;
+    const hints = ['Tap Top-Right corner', 'Tap Bottom-Right corner', 'Tap Bottom-Left corner', 'All 4 set — tap Confirm'];
+    document.getElementById('calib-hint').textContent = hints[calibCorners.length - 1] || 'Tap Top-Left corner';
+  };
+}
+
+function calibDrawDots() {
+  const overlay = document.getElementById('calib-overlay');
+  const ctx = overlay.getContext('2d');
+  ctx.clearRect(0, 0, overlay.width, overlay.height);
+  const video = document.getElementById('calib-video');
+  const rect = video.getBoundingClientRect();
+  const sx = rect.width / video.videoWidth, sy = rect.height / video.videoHeight;
+  calibCorners.forEach(([x, y], i) => {
+    const dx = x * sx, dy = y * sy;
+    ctx.beginPath(); ctx.arc(dx, dy, 14, 0, Math.PI * 2);
+    ctx.fillStyle = CORNER_COLORS[i] + '55'; ctx.fill();
+    ctx.strokeStyle = CORNER_COLORS[i]; ctx.lineWidth = 3; ctx.stroke();
+    ctx.fillStyle = '#fff'; ctx.font = 'bold 13px system-ui';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(CORNER_LABELS[i], dx, dy);
+  });
+}
+
+function calibReset() {
+  calibCorners = [];
+  calibDrawDots();
+  document.getElementById('calib-confirm').textContent = 'Confirm (0/4)';
+  document.getElementById('calib-confirm').disabled = true;
+  document.getElementById('calib-hint').textContent = 'Tap Top-Left corner';
+}
+
+async function calibConfirm() {
+  if (calibCorners.length < 4) return;
+  const video = document.getElementById('calib-video');
+  S.corners = calibCorners;
+  localStorage.setItem('corners', JSON.stringify(S.corners));
+  localStorage.setItem('frameW', video.videoWidth);
+  localStorage.setItem('frameH', video.videoHeight);
+  // Stop calib stream before opening camera stream
+  if (video.srcObject) { video.srcObject.getTracks().forEach(t => t.stop()); video.srcObject = null; }
+  await sendCalibration();
+  connectDisplay();
+  go('camera');
+  document.getElementById('main-nav').style.display = 'flex';
+}
+
+async function sendCalibration() {
+  const fw = parseInt(localStorage.getItem('frameW') || 854);
+  const fh = parseInt(localStorage.getItem('frameH') || 480);
+  const goldenPoint = document.getElementById('golden-point')?.value === 'true';
+  const body = {
+    corners: S.corners,
+    frame_w: fw, frame_h: fh,
+    name_a: S.nameA, name_b: S.nameB,
+    first_server: document.getElementById('first-server')?.value || 'A',
+    fps: 10,
+    golden_point: goldenPoint,
+    model: 'yolo11n.pt', conf: 0.25, court_margin: 0.5,
+  };
+  try {
+    const r = await fetch(S.serverUrl + '/calibrate', {
+      method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body),
+    });
+    if (!r.ok) throw new Error(await r.text());
+    S.matchStartTime = Date.now();
+    S.matchSaved = false; S.peakSpeed = 0; S.rallyCount = 0;
+    console.log('[calibrate] ok');
+  } catch (e) {
+    alert('Calibration failed: ' + e.message);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// CAMERA STREAMING
+// ═══════════════════════════════════════════════════════════════
+let camVideo = null;
+
+async function startCamera() {
+  try {
+    let stream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: {facingMode: {ideal: 'environment'}, width: {ideal: 640}, height: {ideal: 360}},
+        audio: false,
+      });
+    } catch (_) {
+      stream = await navigator.mediaDevices.getUserMedia({video: true, audio: false});
+    }
+    S.cameraStream = stream;
+    camVideo = document.createElement('video');
+    camVideo.srcObject = stream; camVideo.autoplay = true; camVideo.muted = true; camVideo.playsInline = true;
+    await new Promise(r => camVideo.onloadedmetadata = r);
+    camVideo.play();
+
+    document.getElementById('cam-start').style.display = 'none';
+    document.getElementById('cam-stop').style.display = 'block';
+    document.getElementById('cam-status').textContent = '🔴';
+    document.getElementById('st-status').textContent = 'Streaming';
+
+    const SEND_W = 480, SEND_H = Math.round(480 * camVideo.videoHeight / camVideo.videoWidth);
+    const canvas = document.createElement('canvas');
+    canvas.width = SEND_W; canvas.height = SEND_H;
+    const ctx = canvas.getContext('2d');
+
+    const FPS = 10;
+    S.cameraTimer = setInterval(async () => {
+      if (!camVideo || camVideo.readyState < 2) return;
+      ctx.drawImage(camVideo, 0, 0, SEND_W, SEND_H);
+      canvas.toBlob(async blob => {
+        if (!blob) return;
+        const t0 = Date.now();
+        try {
+          const fd = new FormData();
+          fd.append('file', blob, 'frame.jpg');
+          const r = await fetch(S.serverUrl + '/frame', {method: 'POST', body: fd});
+          const result = await r.json();
+          const lat = Date.now() - t0;
+          S.frameCount++;
+          document.getElementById('st-frames').textContent = S.frameCount;
+          document.getElementById('st-lat').textContent = lat + 'ms';
+          document.getElementById('st-players').textContent = result.players?.length ?? 0;
+          document.getElementById('st-ball').textContent = result.ball ? '✓' : '—';
+          const sc = result.score;
+          document.getElementById('st-score').textContent = sc
+            ? `${sc.pts_a ?? 0}–${sc.pts_b ?? 0} (${sc.a ?? 0}–${sc.b ?? 0})`
+            : '—';
+        } catch (e) {
+          document.getElementById('st-status').textContent = 'Error: ' + e.message;
+        }
+      }, 'image/jpeg', 0.75);
+    }, 1000 / FPS);
+  } catch (e) {
+    const msg = e.name === 'NotAllowedError'  ? 'Camera permission denied — allow camera in browser settings and retry.' :
+                e.name === 'NotReadableError' ? 'Camera busy — close other apps using the camera and retry.' :
+                e.name === 'NotFoundError'    ? 'No camera found on this device.' :
+                'Camera error: ' + e.message;
+    alert(msg);
+    document.getElementById('cam-status').textContent = '❌';
+    document.getElementById('st-status').textContent = 'Error';
+  }
+}
+
+function stopCamera() {
+  clearInterval(S.cameraTimer); S.cameraTimer = null;
+  if (S.cameraStream) { S.cameraStream.getTracks().forEach(t => t.stop()); S.cameraStream = null; }
+  if (camVideo) { camVideo.srcObject = null; camVideo = null; }
+  document.getElementById('cam-start').style.display = 'block';
+  document.getElementById('cam-stop').style.display = 'none';
+  document.getElementById('cam-status').textContent = '⏸';
+  document.getElementById('st-status').textContent = 'Idle';
+}
+
+// ═══════════════════════════════════════════════════════════════
+// WEBSOCKET DISPLAY
+// ═══════════════════════════════════════════════════════════════
+function connectDisplay() {
+  if (!S.serverUrl) return;
+  if (S.ws && S.ws.readyState <= 1) return;
+  const wsUrl = S.serverUrl.replace(/^https/, 'wss').replace(/^http/, 'ws') + '/ws';
+  console.log('[ws] connecting to', wsUrl);
+  S.ws = new WebSocket(wsUrl);
+  S.ws.onopen = () => console.log('[ws] connected');
+  S.ws.onmessage = e => onResult(JSON.parse(e.data));
+  S.ws.onclose = () => { console.log('[ws] closed — retry in 3s'); setTimeout(connectDisplay, 3000); };
+  S.ws.onerror = e => console.error('[ws] error', e);
+}
+
+function onResult(r) {
+  // update state
+  S.players = r.players || [];
+  S.ball = r.ball || null;
+  S.score = r.score || S.score;
+  S.speedKmh = r.speed_kmh ?? null;
+  S.rallyActive = r.rally_active || false;
+  if (S.speedKmh && S.speedKmh > S.peakSpeed) S.peakSpeed = S.speedKmh;
+
+  // rally log
+  if (r.rally_ended) {
+    S.rallyCount++;
+    const sc = S.score;
+    const winnerName = sc.server === 'A' ? (sc.name_a || S.nameA) : (sc.name_b || S.nameB);
+    S.rallyLog.unshift({n: S.rallyCount, winner: winnerName, speed: S.speedKmh});
+    if (S.rallyLog.length > 20) S.rallyLog.pop();
+    updateRallyLog();
+  }
+
+  // player trails (up to 4 players)
+  for (const p of S.players) {
+    if (!S.trails[p.tid]) S.trails[p.tid] = [];
+    S.trails[p.tid].push({x: p.x_m, y: p.y_m});
+    if (S.trails[p.tid].length > TRAIL_LEN) S.trails[p.tid].shift();
+  }
+
+  updateScoreBar();
+  updateSpeedHud();
+  drawRadar();
+
+  // live video frame — auto-switch to video on first frame
+  if (r.frame_b64) {
+    const img = document.getElementById('video-frame');
+    img.src = 'data:image/jpeg;base64,' + r.frame_b64;
+    if (S.viewMode !== 'video') toggleView();
+  }
+
+  // match over
+  if (r.score?.match_over && !S.matchSaved) {
+    S.matchSaved = true;
+    saveMatchRecord(r);
+    showMatchOver(r);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SCORE BAR
+// ═══════════════════════════════════════════════════════════════
+function toggleView() {
+  S.viewMode = S.viewMode === 'radar' ? 'video' : 'radar';
+  const btn = document.getElementById('view-toggle');
+  const img = document.getElementById('video-frame');
+  const canvas = document.getElementById('radar');
+  if (S.viewMode === 'video') {
+    img.style.display = 'block';
+    canvas.style.display = 'none';
+    btn.textContent = '📡 Radar';
+  } else {
+    img.style.display = 'none';
+    canvas.style.display = 'block';
+    btn.textContent = '📷 Video';
+  }
+}
+
+function makeSetsBoxes(setsWon, total) {
+  // Show boxes for sets already played + 1 in-progress indicator
+  const boxes = [];
+  for (let i = 0; i < Math.max(setsWon + 1, total + 1, 2); i++) {
+    const won = i < setsWon;
+    boxes.push(`<div class="set-box${won ? ' won' : ''}">${i < setsWon ? '✓' : ''}</div>`);
+  }
+  return boxes.join('');
+}
+
+function formatPoints(ptsRaw, inTiebreak) {
+  if (inTiebreak) return String(ptsRaw ?? 0);
+  const idx = Math.min(ptsRaw ?? 0, 3);
+  return TENNIS_PTS[idx] ?? String(ptsRaw);
+}
+
+function updateScoreBar() {
+  const sc = S.score;
+  const na = document.getElementById('d-name-a');
+  const nb = document.getElementById('d-name-b');
+  na.textContent = (sc.server === 'A' ? '★ ' : '') + (sc.name_a || S.nameA);
+  nb.textContent = (sc.name_b || S.nameB) + (sc.server === 'B' ? ' ★' : '');
+  na.className = 'team-name' + (sc.server === 'A' ? ' serving' : '');
+  nb.className = 'team-name' + (sc.server === 'B' ? ' serving' : '');
+
+  // Sets boxes
+  const totalSets = (sc.sets_a || 0) + (sc.sets_b || 0);
+  document.getElementById('d-sets-a').innerHTML = makeSetsBoxes(sc.sets_a || 0, totalSets);
+  document.getElementById('d-sets-b').innerHTML = makeSetsBoxes(sc.sets_b || 0, totalSets);
+
+  // Games (current set games)
+  document.getElementById('d-games-a').textContent = sc.a ?? 0;
+  document.getElementById('d-games-b').textContent = sc.b ?? 0;
+
+  // Points (tennis-style or tiebreak raw)
+  document.getElementById('d-pts-a').textContent = formatPoints(sc.pts_a, sc.in_tiebreak);
+  document.getElementById('d-pts-b').textContent = formatPoints(sc.pts_b, sc.in_tiebreak);
+
+  // Rally badge
+  const rb = document.getElementById('d-rally');
+  rb.className = 'rally-badge' + (S.rallyActive ? ' active' : '');
+  rb.textContent = S.rallyActive ? '● Rally' : '○ Idle';
+
+  // Set label
+  const setNo = (sc.sets_a || 0) + (sc.sets_b || 0) + 1;
+  document.getElementById('d-set-label').textContent = `Set ${setNo}`;
+  document.getElementById('d-tiebreak-label').textContent = sc.in_tiebreak ? 'TIEBREAK' : '';
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SPEED HUD
+// ═══════════════════════════════════════════════════════════════
+function updateSpeedHud() {
+  const el = document.getElementById('d-speed');
+  if (S.speedKmh !== null) {
+    el.textContent = Math.round(S.speedKmh) + ' km/h';
+  } else {
+    el.textContent = '— km/h';
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// RADAR CANVAS — padel court 10m × 20m
+// ═══════════════════════════════════════════════════════════════
+let radarCanvas, radarCtx;
+
+function initRadarCanvas() {
+  radarCanvas = document.getElementById('radar');
+  radarCtx = radarCanvas.getContext('2d');
+  const cw = Math.floor(COURT_W * PPM) + 2 * MARGIN;
+  const ch = Math.floor(COURT_L * PPM) + 2 * MARGIN;
+  radarCanvas.width = cw; radarCanvas.height = ch;
+  drawRadar();
+}
+
+function toCanvas(mx, my) {
+  return [MARGIN + mx * PPM, MARGIN + my * PPM];
+}
+
+function drawCourt(ctx) {
+  const [tx, ty] = toCanvas(0, 0);
+  const [bx, by] = toCanvas(COURT_W, COURT_L);
+  // Background
+  ctx.fillStyle = '#0d1a0d'; ctx.fillRect(0, 0, radarCanvas.width, radarCanvas.height);
+  // Court surface (blue-green like padel courts)
+  ctx.fillStyle = '#0f2f3a'; ctx.fillRect(tx, ty, bx - tx, by - ty);
+
+  const L = (x1, y1, x2, y2, lw) => {
+    const [ax, ay] = toCanvas(x1, y1), [bx2, by2] = toCanvas(x2, y2);
+    ctx.lineWidth = lw || 1.5;
+    ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(bx2, by2); ctx.stroke();
+  };
+
+  ctx.strokeStyle = '#c8d8e0';
+
+  // Outer boundary — thick (glass walls indicated by thicker lines)
+  ctx.lineWidth = 3.5;
+  ctx.strokeStyle = '#a0c4d8';
+  ctx.strokeRect(tx + 0.5, ty + 0.5, bx - tx - 1, by - ty - 1);
+
+  // Side glass walls — slightly tinted overlay to indicate glass
+  ctx.fillStyle = 'rgba(160,196,216,0.06)';
+  ctx.fillRect(tx, ty, 2, by - ty);            // left wall
+  ctx.fillRect(bx - 2, ty, 2, by - ty);        // right wall
+
+  ctx.strokeStyle = '#c8d8e0';
+
+  // Net at L/2 = 10m
+  ctx.lineWidth = 3; L(0, COURT_L / 2, COURT_W, COURT_L / 2, 3); ctx.lineWidth = 1.5;
+  // Net posts — small circles
+  const [npLx, npLy] = toCanvas(0, COURT_L / 2);
+  const [npRx, npRy] = toCanvas(COURT_W, COURT_L / 2);
+  ctx.fillStyle = '#c8d8e0';
+  ctx.beginPath(); ctx.arc(npLx, npLy, 3, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(npRx, npRy, 3, 0, Math.PI * 2); ctx.fill();
+
+  // Service lines: 3m from net on each side
+  // Near side service line: y = COURT_L/2 + 3 = 13m from top
+  // Far side service line:  y = COURT_L/2 - 3 = 7m from top
+  ctx.setLineDash([5, 4]);
+  L(0, COURT_L / 2 - 3, COURT_W, COURT_L / 2 - 3);  // far service line at y=7m
+  L(0, COURT_L / 2 + 3, COURT_W, COURT_L / 2 + 3);  // near service line at y=13m
+  ctx.setLineDash([]);
+
+  // Centre service line (splits service boxes, runs from net to service line on each side)
+  ctx.setLineDash([3, 4]);
+  L(COURT_W / 2, COURT_L / 2 - 3, COURT_W / 2, COURT_L / 2);       // far half
+  L(COURT_W / 2, COURT_L / 2,     COURT_W / 2, COURT_L / 2 + 3);   // near half
+  ctx.setLineDash([]);
+
+  // "T" intersection markers at net midpoint — subtle
+  ctx.strokeStyle = '#9bb5c2'; ctx.lineWidth = 1;
+  L(COURT_W / 2 - 0.3, COURT_L / 2, COURT_W / 2 + 0.3, COURT_L / 2);
+
+  // Half-court label (near / far)
+  ctx.fillStyle = 'rgba(255,255,255,0.12)'; ctx.font = 'bold 9px system-ui';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  const [midX] = toCanvas(COURT_W / 2, 0);
+  const [, farMidY] = toCanvas(0, COURT_L / 4);
+  const [, nearMidY] = toCanvas(0, COURT_L * 3 / 4);
+  ctx.fillText('FAR', midX, farMidY);
+  ctx.fillText('NEAR', midX, nearMidY);
+}
+
+function playerColor(p, index) {
+  // Assign colours: A1 = orange, A2 = orange-light, B1 = green, B2 = green-light
+  // half === 'near' → Team A (near/bottom half, y > COURT_L/2)
+  // half === 'far'  → Team B (far/top half, y < COURT_L/2)
+  if (p.half === 'near') {
+    return index === 0 ? A1_COLOR : A2_COLOR;
+  } else {
+    return index === 0 ? B1_COLOR : B2_COLOR;
+  }
+}
+
+function drawRadar() {
+  if (!radarCanvas || !radarCtx) return;
+  const ctx = radarCtx;
+  drawCourt(ctx);
+
+  // Group players by half to assign A1/A2 and B1/B2 indices
+  const nearPlayers = S.players.filter(p => p.half === 'near');
+  const farPlayers  = S.players.filter(p => p.half === 'far');
+
+  // Trails
+  for (const [tid, trail] of Object.entries(S.trails)) {
+    if (trail.length < 2) continue;
+    const p = S.players.find(p => String(p.tid) === tid);
+    const nearIdx = nearPlayers.findIndex(q => q.tid === p?.tid);
+    const farIdx  = farPlayers.findIndex(q => q.tid === p?.tid);
+    let color = BALL_COLOR;
+    if (p) color = p.half === 'near' ? (nearIdx === 0 ? A1_COLOR : A2_COLOR)
+                                     : (farIdx  === 0 ? B1_COLOR : B2_COLOR);
+    ctx.strokeStyle = color; ctx.lineWidth = 2;
+    ctx.beginPath();
+    trail.forEach(({x, y}, i) => {
+      const [cx, cy] = toCanvas(x, y);
+      i === 0 ? ctx.moveTo(cx, cy) : ctx.lineTo(cx, cy);
+    });
+    ctx.globalAlpha = 0.45; ctx.stroke(); ctx.globalAlpha = 1;
+  }
+
+  // Players
+  for (const p of S.players) {
+    const [cx, cy] = toCanvas(p.x_m, p.y_m);
+    const nearIdx = nearPlayers.findIndex(q => q.tid === p.tid);
+    const farIdx  = farPlayers.findIndex(q => q.tid === p.tid);
+    const color = p.half === 'near'
+      ? (nearIdx === 0 ? A1_COLOR : A2_COLOR)
+      : (farIdx  === 0 ? B1_COLOR : B2_COLOR);
+    const label = p.half === 'near'
+      ? (nearIdx === 0 ? 'A1' : 'A2')
+      : (farIdx  === 0 ? 'B1' : 'B2');
+    ctx.beginPath(); ctx.arc(cx, cy, 9, 0, Math.PI * 2);
+    ctx.fillStyle = color; ctx.fill();
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
+    ctx.fillStyle = '#000'; ctx.font = 'bold 8px system-ui';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(label, cx, cy);
+  }
+
+  // Ball
+  if (S.ball) {
+    const [cx, cy] = toCanvas(S.ball.x_m, S.ball.y_m);
+    ctx.beginPath(); ctx.arc(cx, cy, 5, 0, Math.PI * 2);
+    ctx.fillStyle = BALL_COLOR; ctx.fill();
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 1; ctx.stroke();
+  }
+}
+
+function updateRallyLog() {
+  const el = document.getElementById('rally-log');
+  el.innerHTML = S.rallyLog.slice(0, 8).map(r =>
+    `<div class="rally-item">Rally ${r.n}: <span class="winner">${r.winner}</span> wins${r.speed ? ` · ${Math.round(r.speed)} km/h` : ''}</div>`
+  ).join('');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MATCH RECORDS
+// ═══════════════════════════════════════════════════════════════
+async function saveMatchRecord(r) {
+  const sc = r.score;
+  const record = {
+    id: new Date().toISOString(),
+    date: new Date().toLocaleDateString(),
+    name_a: sc.name_a || S.nameA,
+    name_b: sc.name_b || S.nameB,
+    sets_a: sc.sets_a || 0,
+    sets_b: sc.sets_b || 0,
+    winner: sc.winner,
+    peak_speed_kmh: Math.round(S.peakSpeed),
+    duration_s: S.matchStartTime ? Math.round((Date.now() - S.matchStartTime) / 1000) : null,
+  };
+  // save to server
+  try {
+    await fetch(S.serverUrl + '/history', {
+      method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(record),
+    });
+  } catch (e) { console.warn('Could not save to server:', e); }
+  // also save locally
+  const local = JSON.parse(localStorage.getItem('history') || '[]');
+  local.unshift(record);
+  localStorage.setItem('history', JSON.stringify(local.slice(0, 100)));
+}
+
+async function loadHistory() {
+  const el = document.getElementById('history-list');
+  el.innerHTML = '<div style="padding:20px;text-align:center;color:var(--muted)">Loading...</div>';
+
+  let records = [];
+  if (S.serverUrl) {
+    try {
+      const r = await fetch(S.serverUrl + '/history');
+      if (r.ok) records = await r.json();
+    } catch (e) {}
+  }
+  if (!records.length) {
+    records = JSON.parse(localStorage.getItem('history') || '[]');
+  }
+
+  if (!records.length) {
+    el.innerHTML = '<div style="padding:40px;text-align:center;color:var(--muted)">No matches recorded yet.</div>';
+    return;
+  }
+
+  el.innerHTML = records.map(g => {
+    const winnerName = g.winner === 'A' ? g.name_a : g.winner === 'B' ? g.name_b : null;
+    const winColor = g.winner === 'A' ? 'var(--a1)' : 'var(--b1)';
+    return `
+    <div class="game-card">
+      <div class="game-header">
+        <div>
+          <div style="font-size:13px;font-weight:600">${g.name_a} vs ${g.name_b}</div>
+          <div class="game-score" style="color:${winColor}">${g.sets_a ?? '?'} – ${g.sets_b ?? '?'} sets</div>
+        </div>
+        <div style="text-align:right">
+          <div class="game-date">${g.date}</div>
+          ${winnerName ? `<div style="font-size:12px;color:var(--accent);margin-top:4px">${winnerName} wins</div>` : ''}
+        </div>
+      </div>
+      <div class="game-stats">
+        ${g.peak_speed_kmh ? `<span>⚡ <b>${g.peak_speed_kmh}</b> km/h peak</span>` : ''}
+        ${g.duration_s ? `<span>⏱ <b>${Math.round(g.duration_s / 60)}</b> min</span>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MATCH OVER
+// ═══════════════════════════════════════════════════════════════
+function showMatchOver(r) {
+  const sc = r.score;
+  const winName = sc.winner === 'A' ? (sc.name_a || S.nameA) : (sc.name_b || S.nameB);
+  document.getElementById('mo-winner').textContent = winName + ' Wins! 🏆';
+  document.getElementById('mo-score').textContent = `${sc.sets_a ?? 0} – ${sc.sets_b ?? 0}`;
+  document.getElementById('match-overlay').classList.add('show');
+}
+
+function closeOverlay() {
+  document.getElementById('match-overlay').classList.remove('show');
+  go('history');
+}
+
+function newGame() {
+  document.getElementById('match-overlay').classList.remove('show');
+  S.rallyLog = []; S.trails = {}; S.peakSpeed = 0; S.rallyCount = 0;
+  S.matchSaved = false; S.matchStartTime = null;
+  go('home');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// BOOT
+// ═══════════════════════════════════════════════════════════════
+window.onload = () => {
+  if (S.nameA) document.getElementById('name-a').value = S.nameA;
+  if (S.nameB) document.getElementById('name-b').value = S.nameB;
+  if (S.serverUrl) {
+    document.getElementById('main-nav').style.display = 'flex';
+    connectDisplay();
+  }
+  window.addEventListener('resize', () => { if (currentPage === 'display') initRadarCanvas(); });
+};
+</script>
+</body>
+</html>
