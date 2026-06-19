@@ -179,7 +179,10 @@ class _TrackNetInference:
     def __init__(self, repo: str, tracknet_ckpt: str, inpaint_ckpt: str, device: str):
         import sys as _sys
         _sys.path.insert(0, repo)
-        from Model import TrackNet, InpaintNet
+        try:
+            from Model import TrackNet, InpaintNet
+        except ModuleNotFoundError:
+            from model import TrackNet, InpaintNet
         import torch as _torch
 
         self.device = device
